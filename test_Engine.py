@@ -83,7 +83,7 @@ class TestRideAnalyticsEngine(unittest.TestCase):
         rides = pd.DataFrame({
             "ride_id": [101],
             "driver_id": [1],
-            "fare_amount": [600],
+            "fare_amount": [600],  #>500
             "ride_time": ["2024-01-01 10:00:00"],
             "ride_status": ["COMPLETED"]
         })

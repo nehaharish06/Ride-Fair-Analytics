@@ -2,22 +2,15 @@ import pandas as pd
 import logging
 import matplotlib.pyplot as plt
 
-# -------------------------------
 # LOGGING CONFIGURATION
-# -------------------------------
 logging.basicConfig(
     filename="ride_engine.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# -------------------------------
 # STEP 1: DATA LOADER
-# -------------------------------
 class DataLoader:
-    """
-    Reads input CSV files (drivers & rides)
-    """
     def __init__(self, drivers_file, rides_file):
         self.drivers_file = drivers_file
         self.rides_file = rides_file
@@ -33,14 +26,8 @@ class DataLoader:
             logging.error(f"Error loading files: {e}")
             raise
 
-
-# -------------------------------
 # STEP 2: VALIDATION
-# -------------------------------
 class Validator:
-    """
-    Handles validation of drivers and rides
-    """
     def __init__(self, drivers, rides):
         self.drivers = drivers
         self.rides = rides
@@ -83,13 +70,8 @@ class Validator:
         return valid_rides
 
 
-# -------------------------------
 # STEP 3: ANOMALY DETECTION
-# -------------------------------
 class AnomalyDetector:
-    """
-    Detects suspicious ride patterns
-    """
     def __init__(self, rides):
         self.rides = rides
 
@@ -142,14 +124,8 @@ class AnomalyDetector:
         logging.info("Anomaly report generated")
         return pd.DataFrame(anomalies)
 
-
-# -------------------------------
 # STEP 4: DRIVER PERFORMANCE
-# -------------------------------
 class PerformanceCalculator:
-    """
-    Calculates driver performance metrics
-    """
     def __init__(self, rides):
         self.rides = rides
 
@@ -166,9 +142,7 @@ class PerformanceCalculator:
         return performance
 
 
-# -------------------------------
 # STEP 5: MAIN ENGINE
-# -------------------------------
 class RideAnalyticsEngine:
     """
     Orchestrates the entire workflow
@@ -179,23 +153,23 @@ class RideAnalyticsEngine:
     def run(self):
         logging.info("Starting Ride Analytics Engine...")
 
-        # STEP 1: Load data
+        # Load data
         drivers, rides = self.loader.load_data()
 
-        # STEP 2: Validate data
+        # Validate data
         validator = Validator(drivers, rides)
         valid_driver_ids = validator.validate_drivers()
         valid_rides = validator.validate_rides(valid_driver_ids)
 
-        # STEP 3: Detect anomalies
+        # Detect anomalies
         detector = AnomalyDetector(valid_rides)
         anomaly_df = detector.generate_report()
 
-        # STEP 4: Calculate performance
+        # Calculate performance
         calculator = PerformanceCalculator(valid_rides)
         performance_df = calculator.calculate()
 
-        # STEP 5: Save outputs
+        # Save outputs
         performance_df.to_csv("driver_performance.csv", index=False)
         anomaly_df.to_csv("anomaly_report.csv", index=False)
 
@@ -205,9 +179,7 @@ class RideAnalyticsEngine:
         return performance_df, anomaly_df
 
 
-# -------------------------------
 # STEP 6: VISUALIZATION
-# -------------------------------
 def generate_graphs(performance_df):
     
     #  Driver Earnings Bar Chart
@@ -231,10 +203,7 @@ def generate_graphs(performance_df):
     plt.savefig("driver_earnings.png")
     plt.close()
 
-
-# -------------------------------
 # RUN MAIN
-# -------------------------------
 if __name__ == "__main__":
     engine = RideAnalyticsEngine("drivers.csv", "rides.csv")
 
