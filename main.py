@@ -2,39 +2,42 @@ import pandas as pd
 import logging
 import matplotlib.pyplot as plt
 
+
 # LOGGING CONFIGURATION
+
 logging.basicConfig(
     filename="ride_engine.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+
 # STEP 1: DATA LOADER
+
 class DataLoader:
     def __init__(self, drivers_file, rides_file):
         self.drivers_file = drivers_file
         self.rides_file = rides_file
 
     def load_data(self):
-        logging.info("Loading CSV files...")
-        try:
-            drivers = pd.read_csv(self.drivers_file)
-            rides = pd.read_csv(self.rides_file)
-            logging.info("Files loaded successfully")
-            return drivers, rides
-        except Exception as e:
-            logging.error(f"Error loading files: {e}")
-            raise
+        logging.info("Loading CSV files")
+        # Read CSV files into pandas DataFrames
+        drivers = pd.read_csv(self.drivers_file)
+        rides = pd.read_csv(self.rides_file)
+        logging.info("CSV files loaded successfully")
+        return drivers, rides
+
+
 
 # STEP 2: VALIDATION
+
 class Validator:
     def __init__(self, drivers, rides):
         self.drivers = drivers
         self.rides = rides
 
     def validate_drivers(self):
-        logging.info("Validating drivers...")
-
+        logging.info("Validating drivers")
         before = len(self.drivers)
 
         # Remove drivers with missing IDs
@@ -43,41 +46,42 @@ class Validator:
         # Keep only ACTIVE drivers
         active_drivers = self.drivers[self.drivers["status"] == "ACTIVE"]
 
-        after = len(active_drivers)
-        logging.info(f"Valid drivers: {after}, Removed: {before - after}")
+        logging.info(f"Drivers before: {before}, after validation: {len(active_drivers)}")
 
+        # Store valid driver IDs
         return set(active_drivers["driver_id"])
 
     def validate_rides(self, valid_driver_ids):
-        logging.info("Validating rides...")
+        logging.info("Validating rides")
+        before = len(self.rides)
 
         # Convert ride_time to datetime (invalid to NaT)
         self.rides["ride_time"] = pd.to_datetime(self.rides["ride_time"], errors="coerce")
 
-        before = len(self.rides)
-
-        # Filter valid rides
+        # Filter valid rides based on rules
         valid_rides = self.rides[
-            (self.rides["driver_id"].isin(valid_driver_ids)) &
-            (self.rides["fare_amount"] > 0) &
-            (self.rides["ride_status"] == "COMPLETED") &
-            (self.rides["ride_time"].notna())
+            (self.rides["driver_id"].isin(valid_driver_ids)) &   # valid driver
+            (self.rides["fare_amount"] > 0) &                   # positive fare
+            (self.rides["ride_status"] == "COMPLETED") &        # completed rides
+            (self.rides["ride_time"].notna())                   # valid time
         ].copy()
 
-        after = len(valid_rides)
-        logging.info(f"Valid rides: {after}, Removed: {before - after}")
+        logging.info(f"Rides before: {before}, after validation: {len(valid_rides)}")
 
         return valid_rides
 
 
+
 # STEP 3: ANOMALY DETECTION
+
 class AnomalyDetector:
+
     def __init__(self, rides):
         self.rides = rides
 
     def detect_high_fare(self):
-        logging.info("Checking high fare anomalies...")
-
+        logging.info("Detecting high fare anomalies")
+        # Detect rides where fare > 500
         anomalies = []
         high_fare = self.rides[self.rides["fare_amount"] > 500]
 
@@ -92,9 +96,11 @@ class AnomalyDetector:
         return anomalies
 
     def detect_rapid_rides(self):
-        logging.info("Checking rapid ride anomalies...")
-
+        logging.info("Detecting rapid ride anomalies")
+        # <2 rides within 2 minutes
         anomalies = []
+
+        # Sort rides for proper time comparison
         rides_sorted = self.rides.sort_values(by=["driver_id", "ride_time"])
 
         for driver_id, group in rides_sorted.groupby("driver_id"):
@@ -104,6 +110,7 @@ class AnomalyDetector:
                 t1 = group.iloc[i]["ride_time"]
                 t3 = group.iloc[i + 2]["ride_time"]
 
+                # If 3 rides happen within 2 minutes → anomaly
                 if (t3 - t1).total_seconds() <= 120:
                     anomalies.append({
                         "ride_id": group.iloc[i + 2]["ride_id"],
@@ -115,8 +122,8 @@ class AnomalyDetector:
         return anomalies
 
     def generate_report(self):
-        logging.info("Generating anomaly report...")
-
+        logging.info("Generating anomaly report")
+        # Combine all anomaly detection results
         anomalies = []
         anomalies.extend(self.detect_high_fare())
         anomalies.extend(self.detect_rapid_rides())
@@ -124,67 +131,73 @@ class AnomalyDetector:
         logging.info("Anomaly report generated")
         return pd.DataFrame(anomalies)
 
+
+
 # STEP 4: DRIVER PERFORMANCE
+
 class PerformanceCalculator:
+
     def __init__(self, rides):
         self.rides = rides
 
     def calculate(self):
-        logging.info("Calculating performance metrics...")
-
+        logging.info("Calculating driver performance")
+        # Group by driver and calculate metrics
         performance = self.rides.groupby("driver_id").agg(
             total_rides=("ride_id", "count"),
             total_earnings=("fare_amount", "sum"),
             avg_fare=("fare_amount", "mean")
         ).reset_index()
 
-        logging.info("Performance calculation completed")
+        logging.info("Driver performance calculated")
         return performance
 
 
+
 # STEP 5: MAIN ENGINE
+
 class RideAnalyticsEngine:
-    """
-    Orchestrates the entire workflow
-    """
+
     def __init__(self, drivers_file, rides_file):
         self.loader = DataLoader(drivers_file, rides_file)
 
     def run(self):
-        logging.info("Starting Ride Analytics Engine...")
+        logging.info("Starting Ride Analytics Engine")
 
-        # Load data
+        # STEP 1: Load data
         drivers, rides = self.loader.load_data()
 
-        # Validate data
+        # STEP 2: Validate data
         validator = Validator(drivers, rides)
         valid_driver_ids = validator.validate_drivers()
         valid_rides = validator.validate_rides(valid_driver_ids)
 
-        # Detect anomalies
+        # STEP 3: Detect anomalies
         detector = AnomalyDetector(valid_rides)
         anomaly_df = detector.generate_report()
 
-        # Calculate performance
+        # STEP 4: Calculate performance
         calculator = PerformanceCalculator(valid_rides)
         performance_df = calculator.calculate()
 
-        # Save outputs
+        # STEP 5: Save outputs
         performance_df.to_csv("driver_performance.csv", index=False)
         anomaly_df.to_csv("anomaly_report.csv", index=False)
 
-        logging.info("Files saved successfully")
-        logging.info("Engine execution completed")
+        logging.info("Outputs saved successfully")
+        logging.info("Ride Analytics Engine completed")
 
         return performance_df, anomaly_df
 
 
-# STEP 6: VISUALIZATION
+# STEP 6: VISUALIZATION 
+
 def generate_graphs(performance_df):
-    
-    #  Driver Earnings Bar Chart
     plt.figure()
-    bars=plt.bar(performance_df["driver_id"], performance_df["total_earnings"])
+
+    bars = plt.bar(performance_df["driver_id"], performance_df["total_earnings"])
+
+# Add total rides
     for i, bar in enumerate(bars):
         rides = performance_df["total_rides"].iloc[i]
         plt.text(
@@ -197,20 +210,22 @@ def generate_graphs(performance_df):
 
     plt.xlabel("Driver ID")
     plt.ylabel("Total Earnings")
-    plt.title("Driver Earnings")
+    plt.title("Driver Earnings with Total Rides")
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.savefig("driver_earnings.png")
     plt.close()
 
 # RUN MAIN
+
 if __name__ == "__main__":
+    # Initialize engine with input files
     engine = RideAnalyticsEngine("drivers.csv", "rides.csv")
 
+    # Run complete pipeline
     performance, anomalies = engine.run()
 
+    # Print results
     print("Driver Performance:\n", performance)
     print("\nAnomaly Report:\n", anomalies)
-
-    # Generate graphs
     generate_graphs(performance)
